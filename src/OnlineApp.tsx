@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 import './App.css';
-import type { GameState, TileData, MatchState, PlayerState, RackSlot } from './types';
+import type { GameState, TileData, RackSlot } from './types';
 import { calculateRackPoints } from './utils/ruleEngine';
 import { autoSortSeries, autoSortPairs } from './utils/sortLogic';
 import { Rack } from './components/Rack';
@@ -22,7 +22,7 @@ import { Tile } from './components/Tile';
 
 const SERVER_URL = 'http://localhost:3001';
 
-const Opponent: React.FC<{ position: string, name: string, tileCount: number, discard: string, isActive?: boolean }> = ({ position, name, tileCount, discard, isActive }) => {
+const Opponent: React.FC<{ position: string, name: string, tileCount: number, discard: string, isActive?: boolean }> = ({ position, name, tileCount: _tileCount, discard: _discard, isActive }) => {
   return (
     <div className={`opponent-${position} ${isActive ? 'active-turn' : ''}`}>
       <div className="flex-center" style={{ gap: '4px' }}>
@@ -39,7 +39,7 @@ export default function OnlineApp() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState('');
-  const [username, setUsername] = useState('');
+  const [_username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [roomPlayers, setRoomPlayers] = useState<{username: string, gamePlayerId: string}[]>([]);
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -181,7 +181,7 @@ export default function OnlineApp() {
   const handleOpenHand = () => {
     const points = calculateRackPoints(me.rack);
     if (points.totalSeriesPoints >= 101 || points.totalPairs >= 5) {
-       emitAction('OPEN_HAND', { melds: points.validBlocks, newRack: (points as any).leftoverRack || me.rack.filter(x => false) });
+       emitAction('OPEN_HAND', { melds: points.validBlocks, newRack: (points as any).leftoverRack || me.rack.filter(_x => false) });
     }
   };
 

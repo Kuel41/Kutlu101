@@ -1,4 +1,4 @@
-import type { GameState, TileData, MatchState, RackSlot } from '../types';
+import type { TileData, MatchState, RackSlot } from '../types';
 import { autoSortSeries, autoSortPairs } from './sortLogic';
 import { calculateRackPoints, canAppendToMeld, isTilePlayable } from './ruleEngine';
 
