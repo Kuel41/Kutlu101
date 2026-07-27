@@ -20,16 +20,14 @@ import {
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Tile } from './components/Tile';
 
-// NOT: Uygulamayı Render'a yüklediğinde sana verilen linki (örn: https://kutlu-server.onrender.com) 
-// aşağıdaki http://localhost:3001 yerine yapıştırıp pushlamalısın!
-const SERVER_URL = 'https://kutlu101.onrender.com';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 const Opponent: React.FC<{ position: string, name: string, tileCount: number, discard: string, isActive?: boolean }> = ({ position, name, tileCount: _tileCount, discard: _discard, isActive }) => {
   return (
     <div className={`opponent-${position} ${isActive ? 'active-turn' : ''}`}>
       <div className="flex-center" style={{ gap: '4px' }}>
         <div className="avatar">
-          <div className="avatar-icon">P</div>
+          <div className="avatar-icon">👤</div>
           <div>{name}</div>
         </div>
       </div>
@@ -43,7 +41,7 @@ export default function OnlineApp() {
   const [roomId, setRoomId] = useState('');
   const [_username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [roomPlayers, setRoomPlayers] = useState<{username: string, gamePlayerId: string}[]>([]);
+  const [roomPlayers, setRoomPlayers] = useState<{username: string, gamePlayerId: string, isBot?: boolean}[]>([]);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [myGamePlayerId, setMyGamePlayerId] = useState<string | null>(null);
   const [activeTile, setActiveTile] = useState<TileData | null>(null);
@@ -104,14 +102,14 @@ export default function OnlineApp() {
   }
 
   if (!gameState) {
-    const emptySlots = 4 - roomPlayers.length;
+    const emptySlots = 4 - roomPlayers.filter(p => !p.isBot).length;
     return (
       <div style={{color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#111', gap: '16px'}}>
         <h2 style={{color: '#ffd700', fontSize: '28px'}}>101 KUTLU</h2>
         <p style={{color: '#aaa'}}>Oda: <strong style={{color: 'white'}}>{roomId}</strong></p>
         <div style={{background: '#1e1e1e', borderRadius: '12px', padding: '24px', minWidth: '280px'}}>
-          <p style={{marginBottom: '12px', color: '#aaa', textAlign: 'center'}}>Oyuncular ({roomPlayers.length}/4)</p>
-          {roomPlayers.map(p => (
+          <p style={{marginBottom: '12px', color: '#aaa', textAlign: 'center'}}>Oyuncular ({roomPlayers.filter(p => !p.isBot).length}/4)</p>
+          {roomPlayers.filter(p => !p.isBot).map(p => (
             <div key={p.gamePlayerId} style={{padding: '8px 12px', marginBottom: '8px', background: '#2a2a2a', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px'}}>
               <span style={{color: '#4caf50'}}>●</span> {p.username} {p.gamePlayerId === myGamePlayerId ? '(Sen)' : ''}
             </div>
@@ -155,9 +153,9 @@ export default function OnlineApp() {
   const leftOpponent = gameState.players[leftId as keyof typeof gameState.players];
   const rightOpponent = gameState.players[rightId as keyof typeof gameState.players];
 
-  const canDraw = gameState.currentPlayerId === myGamePlayerId && !gameState.hasDrawn;
   const p1TileCount = me.rack.filter((s: RackSlot) => s.tile !== null).length;
-  const canDiscard = gameState.currentPlayerId === myGamePlayerId && (gameState.hasDrawn || p1TileCount === 22);
+  const canDraw = gameState.currentPlayerId === myGamePlayerId && !gameState.hasDrawn && p1TileCount < 22;
+  const canDiscard = gameState.currentPlayerId === myGamePlayerId && (gameState.hasDrawn || p1TileCount >= 22);
 
   const handleDrawDeck = () => {
     if (!canDraw) return;
@@ -179,7 +177,7 @@ export default function OnlineApp() {
 
     if (over.id === 'discard-area') {
       if (!canDiscard) {
-        alert('Lutfen once ortadan tas cekin!');
+        alert('Lütfen önce ortadan taş çekin!');
         return;
       }
       emitAction('DISCARD_TILE', { tileId: active.id });
@@ -187,8 +185,8 @@ export default function OnlineApp() {
     }
 
     if (typeof over.id === 'string' && over.id.startsWith('table-meld-')) {
-       alert("Masaya islemek su an online versiyonda gecici kapali.");
-       return;
+      alert('Masaya işlemek şu an online versiyonda geçici kapalı.');
+      return;
     }
 
     const activeSlotIndex = me.rack.findIndex((s: RackSlot) => s.tile?.id === active.id);
@@ -217,14 +215,18 @@ export default function OnlineApp() {
   const handleOpenHand = () => {
     const points = calculateRackPoints(me.rack);
     if (points.totalSeriesPoints >= 101 || points.totalPairs >= 5) {
-       emitAction('OPEN_HAND', { melds: points.validBlocks, newRack: (points as any).leftoverRack || me.rack.filter(_x => false) });
+      const leftoverRack = me.rack.map((s: RackSlot) => {
+        const inBlock = points.validBlocks.flat().some(t => t.id === s.tile?.id);
+        return inBlock ? { ...s, tile: null } : s;
+      });
+      emitAction('OPEN_HAND', { melds: points.validBlocks, newRack: leftoverRack });
     }
   };
 
   const topDiscardPile = gameState.discardPiles[topId] || [];
   const leftDiscardPile = gameState.discardPiles[leftId] || [];
   const rightDiscardPile = gameState.discardPiles[rightId] || [];
-  
+
   const topDiscard = topDiscardPile[topDiscardPile.length - 1];
   const leftDiscard = leftDiscardPile[leftDiscardPile.length - 1];
   const rightDiscard = rightDiscardPile[rightDiscardPile.length - 1];
@@ -232,27 +234,49 @@ export default function OnlineApp() {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className={`game-container ${gameState.currentPlayerId !== myGamePlayerId ? 'not-my-turn' : ''}`}>
-        
+
         {gameFinishedInfo && (
           <div className="modal-overlay">
             <div className="modal-content" style={{border: '2px solid #00e676'}}>
               <div className="modal-title" style={{color: '#00e676'}}>Oyun Bitti!</div>
-              <p style={{marginBottom: '20px', fontSize: '20px'}}>Kazanan: {gameState.players[gameFinishedInfo.winner as keyof typeof gameState.players].name}</p>
+              <p style={{marginBottom: '20px', fontSize: '20px'}}>
+                Kazanan: {gameState.players[gameFinishedInfo.winner as keyof typeof gameState.players]?.name}
+              </p>
               {gameFinishedInfo.okeyFinish && <p style={{color: 'red'}}>Okey ile Bitti! (x2 Ceza)</p>}
               <button className="modal-btn" onClick={() => window.location.reload()}>Yeniden Oyna</button>
             </div>
           </div>
         )}
 
+        {/* Scoreboard Panel */}
+        <div className="scoreboard-panel">
+          <div className="scoreboard-title">Oyuncular</div>
+          {roomPlayers.map(p => {
+            const playerState = gameState.players[p.gamePlayerId as keyof typeof gameState.players];
+            const tileCount = playerState ? playerState.rack.filter((s: RackSlot) => s.tile !== null).length : 0;
+            const isActive = gameState.currentPlayerId === p.gamePlayerId;
+            return (
+              <div key={p.gamePlayerId} className="scoreboard-row" style={{color: isActive ? '#ffd700' : 'white', fontWeight: isActive ? 'bold' : 'normal'}}>
+                <span>{p.username.substring(0, 10)}{p.gamePlayerId === myGamePlayerId ? ' 🙋' : ''}</span>
+                <span>{tileCount} taş</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {gameState.currentPlayerId !== myGamePlayerId && (
+          <div className="turn-overlay">Rakiplerin Hamlesi Bekleniyor...</div>
+        )}
+
         <div className="main-area">
           <div className="board-grid">
             <div className="board-logo-left">101<br/>KUTLU</div>
             <div className="board-logo-right">101<br/>KUTLU</div>
-            
+
             <Opponent position="top" name={topOpponent.name.substring(0,8)} tileCount={topOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={topDiscard ? topDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === topId} />
             <Opponent position="left" name={leftOpponent.name.substring(0,8)} tileCount={leftOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={leftDiscard ? leftDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === leftId} />
             <Opponent position="right" name={rightOpponent.name.substring(0,8)} tileCount={rightOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={rightDiscard ? rightDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === rightId} />
-            
+
             <div className="table-melds-area">
               {gameState.tableMelds.map((meld, index) => (
                 <TableMeldGroup key={index} meld={meld} index={index} />
@@ -262,19 +286,19 @@ export default function OnlineApp() {
 
           <div className="sidebar">
             <div className="indicator-area" style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ color: 'white', fontWeight: 'bold', marginBottom: '8px' }}>GOSTERGE</div>
+              <div style={{ color: 'white', fontWeight: 'bold', marginBottom: '8px' }}>GÖSTERGE</div>
               <div style={{ transform: 'scale(0.8)', pointerEvents: 'none' }}>
                 <Tile tile={gameState.indicator} />
               </div>
             </div>
 
-            <div 
-              className="deck-placeholder flex-center" 
-              onClick={handleDrawDeck} 
-              style={{ cursor: canDraw ? 'pointer' : 'not-allowed', opacity: canDraw ? 1 : 0.4, marginTop: '10px' }}
+            <div
+              className="deck-placeholder flex-center"
+              onClick={handleDrawDeck}
+              style={{ cursor: canDraw ? 'pointer' : 'not-allowed', opacity: canDraw ? 1 : 0.4, marginTop: '10px', position: 'relative' }}
             >
               <div className="deck-count">{gameState.deck.length}</div>
-              <div style={{ fontSize: '12px', lineHeight: '1' }}>DESTE<br/>CEK</div>
+              <div style={{ fontSize: '12px', lineHeight: '1' }}>DESTE<br/>ÇEK</div>
             </div>
           </div>
         </div>
@@ -283,33 +307,34 @@ export default function OnlineApp() {
           <div style={{ opacity: canDiscard ? 1 : 0.4, transition: 'opacity 0.2s', pointerEvents: canDiscard ? 'auto' : 'none' }}>
             <DiscardArea />
           </div>
-          
+
           <div className="point-indicator">
             <div className={`point-badge ${gameState.hasOpenedHand[myGamePlayerId] || calculateRackPoints(me.rack).totalSeriesPoints >= 101 ? 'valid' : 'invalid'}`}>
-              SERI: {calculateRackPoints(me.rack).totalSeriesPoints} / {gameState.hasOpenedHand[myGamePlayerId] ? 'ACIK' : '101'}
+              SERİ: {calculateRackPoints(me.rack).totalSeriesPoints} / {gameState.hasOpenedHand[myGamePlayerId] ? 'AÇIK' : '101'}
             </div>
             <div className={`point-badge ${gameState.hasOpenedHand[myGamePlayerId] || calculateRackPoints(me.rack).totalPairs >= 5 ? 'valid' : 'invalid'}`}>
-              CIFT: {calculateRackPoints(me.rack).totalPairs} / {gameState.hasOpenedHand[myGamePlayerId] ? 'ACIK' : '5'}
+              ÇİFT: {calculateRackPoints(me.rack).totalPairs} / {gameState.hasOpenedHand[myGamePlayerId] ? 'AÇIK' : '5'}
             </div>
           </div>
 
           <div className="side-action-btn" onClick={handleAutoSortPairs}>
             <div className="btn-icon">5 5</div>
-            CIFT<br/>DIZ
+            ÇİFT<br/>DİZ
           </div>
-          
+
           <div className="rack-and-open">
             {(gameState.hasOpenedHand[myGamePlayerId] ? calculateRackPoints(me.rack).validBlocks.length > 0 : (calculateRackPoints(me.rack).totalSeriesPoints >= 101 || calculateRackPoints(me.rack).totalPairs >= 5)) && (
-              <button className="open-hand-btn" onClick={handleOpenHand}>ELI AC</button>
+              <button className="open-hand-btn" onClick={handleOpenHand}>ELİ AÇ</button>
             )}
             <Rack slots={me.rack} />
           </div>
 
           <div className="side-action-btn" onClick={handleAutoSort}>
             <div className="btn-icon" style={{color:'#0288d1', width:'40px'}}>1 2 3</div>
-            SERI<br/>DIZ
+            SERİ<br/>DİZ
           </div>
         </div>
+
       </div>
       <DragOverlay dropAnimation={null}>
         {activeTile ? <Tile tile={activeTile} className="dragging-overlay-tile" /> : null}
