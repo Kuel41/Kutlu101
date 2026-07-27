@@ -235,6 +235,8 @@ io.on('connection', (socket: Socket) => {
 
     if (action === 'DRAW_DECK') {
       if (state.currentPlayerId !== myId || state.hasDrawn) return;
+      const currentTileCount = state.players[myId].rack.filter((s: any) => s.tile !== null).length;
+      if (currentTileCount >= 22) return; // 22 taşı varsa çekemez
       const drawnTile = state.deck.pop();
       if (!drawnTile) return;
       const emptySlotIndex = state.players[myId].rack.findIndex((s: any) => s.tile === null);
