@@ -280,11 +280,11 @@ export default function OnlineApp() {
   const handleVote = (vote: 'yes' | 'no') => {
     if (!socket || !roomId) return;
     setMyVote(vote);
-    socket.emit('castVote', { roomId, vote });
+    emitAction('CAST_VOTE', { vote: vote === 'yes' });
   };
 
   const handleStartVote = () => {
-    emitAction('VOTE_END_GAME');
+    emitAction('START_VOTE');
   };
 
   return (
