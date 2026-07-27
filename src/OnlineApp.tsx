@@ -291,6 +291,21 @@ export default function OnlineApp() {
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className={`game-container ${gameState.currentPlayerId !== myGamePlayerId ? 'not-my-turn' : ''}`}>
 
+        {timeLeft <= 10 && gameState.currentPlayerId === myGamePlayerId && (
+          <div style={{
+            position: 'absolute', top: '20px', right: '20px',
+            background: 'rgba(255,0,0,0.9)', padding: '15px 25px', borderRadius: '12px', 
+            color: 'white', fontWeight: 'bold', fontSize: '18px', zIndex: 2000,
+            boxShadow: '0 0 20px rgba(255,0,0,0.7)',
+            animation: 'pulse-red 1s infinite',
+            textAlign: 'center',
+            maxWidth: '300px'
+          }}>
+            <div style={{ fontSize: '24px', marginBottom: '8px' }}>⏳ Son {timeLeft} saniye!</div>
+            <div style={{ fontSize: '14px', fontWeight: 'normal' }}>Eğer oynamazsanız elinizden bir taş ortaya atılacaktır.</div>
+          </div>
+        )}
+
         {voteState?.active && (
           <div className="modal-overlay" style={{ zIndex: 1000 }}>
             <div className="modal-content" style={{ background: '#2c3e50', padding: '30px' }}>
@@ -393,18 +408,6 @@ export default function OnlineApp() {
         <div className="main-area">
           <div className="board-grid">
             <div className="table-area-center">
-              {timeLeft <= 10 && gameState.currentPlayerId === myGamePlayerId && (
-                <div style={{
-                  position: 'absolute', top: '-60px', left: '50%', transform: 'translateX(-50%)',
-                  background: 'rgba(255,0,0,0.8)', padding: '10px 20px', borderRadius: '20px', 
-                  color: 'white', fontWeight: 'bold', fontSize: '20px', zIndex: 100,
-                  boxShadow: '0 0 20px rgba(255,0,0,0.5)',
-                  animation: 'pulse-red 1s infinite'
-                }}>
-                  ⏳ Son {timeLeft} saniye!
-                </div>
-              )}
-              
               <div className="table-meld-zones">
                 <div className="board-logo-left">101<br/>KUTLU</div>
                 <div className="board-logo-right">101<br/>KUTLU</div>

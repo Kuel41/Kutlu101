@@ -119,7 +119,7 @@ function startTurnTimer(roomId: string) {
       rack[sourceIndex].tile = null;
       
       if (!s.discardPiles[currentId]) s.discardPiles[currentId] = [];
-      s.discardPiles[currentId].push(discardTile);
+      s.discardPiles[currentId].push(discardedTile);
       
       const remainingTiles = rack.filter((sl: any) => sl.tile !== null).length;
       if (remainingTiles === 0) {
