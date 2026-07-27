@@ -20,7 +20,7 @@ import {
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Tile } from './components/Tile';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+const SERVER_URL = 'https://kutlu101.onrender.com';
 
 const Opponent: React.FC<{ position: string, name: string, tileCount: number, discard: string, isActive?: boolean }> = ({ position, name, tileCount: _tileCount, discard: _discard, isActive }) => {
   return (
