@@ -35,6 +35,16 @@ export interface GameState {
   hasOpenedHand: Record<string, boolean>;
   discardPiles: Record<string, TileData[]>;
   tiles: TileData[]; // total available tiles pool if needed
+  highestSeriesPoint: number;
+  highestPairsPoint: number;
+  turnStartTime: number; // For timer
+}
+
+export interface RoomSettings {
+  isKatlamali: boolean;
+  islekCezasi: boolean;
+  okeyCezasi: boolean;
+  maxScore: number;
 }
 
 export interface MatchState {

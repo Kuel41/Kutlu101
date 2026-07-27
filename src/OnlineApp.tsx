@@ -45,7 +45,11 @@ export default function OnlineApp() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [myGamePlayerId, setMyGamePlayerId] = useState<string | null>(null);
   const [activeTile, setActiveTile] = useState<TileData | null>(null);
-  const [gameFinishedInfo, setGameFinishedInfo] = useState<{winner: string, okeyFinish: boolean} | null>(null);
+  const [gameFinishedInfo, setGameFinishedInfo] = useState<{winner: string | null, okeyFinish?: boolean, reason?: string, isGameEnded?: boolean} | null>(null);
+  
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [voteState, setVoteState] = useState<{active: boolean, yes: number, no: number} | null>(null);
+  const [myVote, setMyVote] = useState<'yes' | 'no' | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -76,8 +80,42 @@ export default function OnlineApp() {
       setGameFinishedInfo(info);
     });
 
+    newSocket.on('roomCreated', (roomId) => {
+      setJoined(true);
+    });
+
+    newSocket.on('voteStarted', () => {
+      setVoteState({ active: true, yes: 0, no: 0 });
+      setMyVote(null);
+    });
+
+    newSocket.on('voteUpdated', (data) => {
+      setVoteState({ active: true, yes: data.yesVotes, no: data.noVotes });
+    });
+
+    newSocket.on('voteFinished', (data) => {
+      setVoteState(null);
+      if (!data.ended) {
+        alert('Oylama sonucu: Oyun sonlandırılmadı.');
+      }
+    });
+
     return () => { newSocket.close(); };
   }, []);
+
+  useEffect(() => {
+    if (!gameState || !gameState.turnStartTime) return;
+    
+    const updateTimer = () => {
+      const elapsed = Math.floor((Date.now() - gameState.turnStartTime) / 1000);
+      const remaining = Math.max(0, 30 - elapsed);
+      setTimeLeft(remaining);
+    };
+    
+    updateTimer();
+    const intervalId = setInterval(updateTimer, 500);
+    return () => clearInterval(intervalId);
+  }, [gameState?.turnStartTime, gameState?.currentPlayerId]);
 
   const handleJoin = (uname: string, room: string) => {
     if (!socket) return;
@@ -85,6 +123,13 @@ export default function OnlineApp() {
     setRoomId(room);
     socket.emit('joinRoom', { username: uname, roomId: room });
     setJoined(true);
+  };
+
+  const handleCreate = (uname: string, room: string, settings: any) => {
+    if (!socket) return;
+    setUsername(uname);
+    setRoomId(room);
+    socket.emit('createRoom', { username: uname, roomId: room, settings });
   };
 
   const handleStartGame = () => {
@@ -98,7 +143,7 @@ export default function OnlineApp() {
   };
 
   if (!joined || !myGamePlayerId) {
-    return <Lobby onJoin={handleJoin} error={error} />;
+    return <Lobby onJoin={handleJoin} onCreate={handleCreate} error={error} />;
   }
 
   if (!gameState) {
@@ -109,35 +154,36 @@ export default function OnlineApp() {
         <p style={{color: '#aaa'}}>Oda: <strong style={{color: 'white'}}>{roomId}</strong></p>
         <div style={{background: '#1e1e1e', borderRadius: '12px', padding: '24px', minWidth: '280px'}}>
           <p style={{marginBottom: '12px', color: '#aaa', textAlign: 'center'}}>Oyuncular ({roomPlayers.filter(p => !p.isBot).length}/4)</p>
-          {roomPlayers.filter(p => !p.isBot).map(p => (
-            <div key={p.gamePlayerId} style={{padding: '8px 12px', marginBottom: '8px', background: '#2a2a2a', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-              <span style={{color: '#4caf50'}}>●</span> {p.username} {p.gamePlayerId === myGamePlayerId ? '(Sen)' : ''}
-            </div>
-          ))}
-          {Array.from({length: emptySlots}).map((_, i) => (
-            <div key={i} style={{padding: '8px 12px', marginBottom: '8px', background: '#1a1a1a', borderRadius: '8px', color: '#555', display: 'flex', alignItems: 'center', gap: '8px', border: '1px dashed #333'}}>
-              <span>🤖</span> Bot (boş slot)
-            </div>
-          ))}
+          <ul style={{listStyle: 'none', padding: 0, margin: '0 0 24px 0'}}>
+            {roomPlayers.map(p => (
+              <li key={p.gamePlayerId} style={{color: p.isBot ? '#aaa' : 'white', padding: '8px 0', borderBottom: '1px solid #333'}}>
+                {p.username} {p.gamePlayerId === myGamePlayerId && ' 🙋'} {p.isBot && '(Bot)'}
+              </li>
+            ))}
+          </ul>
+          
+          <button 
+            onClick={() => {
+              const inviteLink = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+              navigator.clipboard.writeText(inviteLink);
+              alert('Davetiye linki kopyalandı:\n' + inviteLink);
+            }}
+            style={{width: '100%', padding: '12px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '12px'}}
+          >
+            Davetiye Linkini Kopyala
+          </button>
+
+          {roomPlayers[0]?.gamePlayerId === myGamePlayerId ? (
+            <button 
+              onClick={handleStartGame}
+              style={{width: '100%', padding: '12px', backgroundColor: '#ffd700', color: 'black', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer'}}
+            >
+              Oyunu Başlat (Eksikler Botla Doldurulur)
+            </button>
+          ) : (
+            <p style={{color: '#aaa', textAlign: 'center', margin: 0}}>Kurucunun oyunu başlatması bekleniyor...</p>
+          )}
         </div>
-        <button
-          onClick={handleStartGame}
-          style={{
-            padding: '14px 40px',
-            background: 'linear-gradient(135deg, #4caf50, #2e7d32)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            marginTop: '8px',
-            boxShadow: '0 4px 15px rgba(76,175,80,0.4)'
-          }}
-        >
-          🚀 Oyunu Başlat
-        </button>
-        <p style={{color: '#666', fontSize: '13px'}}>Boş slotlar otomatik olarak botlarla doldurulur</p>
       </div>
     );
   }
@@ -231,19 +277,62 @@ export default function OnlineApp() {
   const leftDiscard = leftDiscardPile[leftDiscardPile.length - 1];
   const rightDiscard = rightDiscardPile[rightDiscardPile.length - 1];
 
+  const handleVote = (vote: 'yes' | 'no') => {
+    if (!socket || !roomId) return;
+    setMyVote(vote);
+    socket.emit('castVote', { roomId, vote });
+  };
+
+  const handleStartVote = () => {
+    emitAction('VOTE_END_GAME');
+  };
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className={`game-container ${gameState.currentPlayerId !== myGamePlayerId ? 'not-my-turn' : ''}`}>
 
+        {voteState?.active && (
+          <div className="modal-overlay" style={{ zIndex: 1000 }}>
+            <div className="modal-content" style={{ background: '#2c3e50', padding: '30px' }}>
+              <h2>Oyunu Sonlandırma Oylaması</h2>
+              <p>Bir oyuncu oyunu sonlandırmak için oylama başlattı.<br/>Onaylıyor musunuz? (Evet oyları çoğunlukta olursa oyun biter)</p>
+              
+              <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', margin: '20px 0' }}>
+                <button 
+                  onClick={() => handleVote('yes')}
+                  disabled={myVote !== null}
+                  style={{ background: myVote === 'yes' ? '#27ae60' : '#4caf50', padding: '10px 20px', fontSize: '18px', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', opacity: myVote !== null && myVote !== 'yes' ? 0.5 : 1 }}
+                >
+                  Evet ({voteState.yes})
+                </button>
+                <button 
+                  onClick={() => handleVote('no')}
+                  disabled={myVote !== null}
+                  style={{ background: myVote === 'no' ? '#c0392b' : '#f44336', padding: '10px 20px', fontSize: '18px', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', opacity: myVote !== null && myVote !== 'no' ? 0.5 : 1 }}
+                >
+                  Hayır ({voteState.no})
+                </button>
+              </div>
+              <p style={{ color: '#aaa', fontSize: '14px' }}>30 saniye içinde cevap vermezseniz hayır sayılır.</p>
+            </div>
+          </div>
+        )}
+
         {gameFinishedInfo && (
           <div className="modal-overlay">
             <div className="modal-content" style={{border: '2px solid #00e676'}}>
-              <div className="modal-title" style={{color: '#00e676'}}>Oyun Bitti!</div>
+              <div className="modal-title" style={{color: '#00e676'}}>
+                {(gameFinishedInfo as any).isGameEnded ? 'Oyun Bitti!' : 'El Bitti!'}
+              </div>
               
               {(gameFinishedInfo as any).reason === 'deck_empty' ? (
                 <>
                   <p style={{marginBottom: '10px', fontSize: '20px', color: '#ffb300'}}>Ortada Çekilecek Taş Kalmadı!</p>
                   <p style={{marginBottom: '20px', fontSize: '18px', color: '#ff5252'}}>Herkese 200 ceza puanı yazıldı.</p>
+                </>
+              ) : (gameFinishedInfo as any).reason === 'vote_ended' ? (
+                <>
+                  <p style={{marginBottom: '20px', fontSize: '20px', color: '#ffb300'}}>Oylama Sonucu Oyun Bitirildi!</p>
                 </>
               ) : (
                 <>
@@ -254,7 +343,20 @@ export default function OnlineApp() {
                 </>
               )}
 
-              <button className="modal-btn" onClick={() => window.location.reload()}>Yeniden Oyna</button>
+              {(gameFinishedInfo as any).isGameEnded ? (
+                <button className="modal-btn" onClick={() => window.location.reload()}>Ana Menüye Dön</button>
+              ) : (
+                <button className="modal-btn" onClick={() => {
+                  if (roomPlayers[0]?.gamePlayerId === myGamePlayerId) {
+                    emitAction('START_NEXT_ROUND');
+                    setGameFinishedInfo(null);
+                  } else {
+                    alert('Kurucunun yeni eli başlatması bekleniyor...');
+                  }
+                }}>
+                  {roomPlayers[0]?.gamePlayerId === myGamePlayerId ? 'Sıradaki Ele Geç' : 'Kurucuyu Bekle'}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -275,6 +377,13 @@ export default function OnlineApp() {
               </div>
             );
           })}
+          
+          <button 
+            onClick={handleStartVote}
+            style={{ width: '100%', marginTop: '15px', background: 'rgba(255,0,0,0.5)', border: '1px solid red', color: 'white', padding: '5px', borderRadius: '5px', cursor: 'pointer' }}
+          >
+            Oyunu Sonlandırmayı Oyla
+          </button>
         </div>
 
         {gameState.currentPlayerId !== myGamePlayerId && (
@@ -283,17 +392,33 @@ export default function OnlineApp() {
 
         <div className="main-area">
           <div className="board-grid">
-            <div className="board-logo-left">101<br/>KUTLU</div>
-            <div className="board-logo-right">101<br/>KUTLU</div>
+            <div className="table-area-center">
+              {timeLeft <= 10 && gameState.currentPlayerId === myGamePlayerId && (
+                <div style={{
+                  position: 'absolute', top: '-60px', left: '50%', transform: 'translateX(-50%)',
+                  background: 'rgba(255,0,0,0.8)', padding: '10px 20px', borderRadius: '20px', 
+                  color: 'white', fontWeight: 'bold', fontSize: '20px', zIndex: 100,
+                  boxShadow: '0 0 20px rgba(255,0,0,0.5)',
+                  animation: 'pulse-red 1s infinite'
+                }}>
+                  ⏳ Son {timeLeft} saniye!
+                </div>
+              )}
+              
+              <div className="table-meld-zones">
+                <div className="board-logo-left">101<br/>KUTLU</div>
+                <div className="board-logo-right">101<br/>KUTLU</div>
+                
+                <Opponent position="top" name={topOpponent.name.substring(0,8)} tileCount={topOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={topDiscard ? topDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === topId} />
+                <Opponent position="left" name={leftOpponent.name.substring(0,8)} tileCount={leftOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={leftDiscard ? leftDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === leftId} />
+                <Opponent position="right" name={rightOpponent.name.substring(0,8)} tileCount={rightOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={rightDiscard ? rightDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === rightId} />
 
-            <Opponent position="top" name={topOpponent.name.substring(0,8)} tileCount={topOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={topDiscard ? topDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === topId} />
-            <Opponent position="left" name={leftOpponent.name.substring(0,8)} tileCount={leftOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={leftDiscard ? leftDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === leftId} />
-            <Opponent position="right" name={rightOpponent.name.substring(0,8)} tileCount={rightOpponent.rack.filter((s: RackSlot) => s.tile !== null).length} discard={rightDiscard ? rightDiscard.value.toString() : ''} isActive={gameState.currentPlayerId === rightId} />
-
-            <div className="table-melds-area">
-              {gameState.tableMelds.map((meld, index) => (
-                <TableMeldGroup key={index} meld={meld} index={index} />
-              ))}
+                <div className="table-melds-area">
+                  {gameState.tableMelds.map((meld, index) => (
+                    <TableMeldGroup key={index} meld={meld} index={index} />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -319,6 +444,19 @@ export default function OnlineApp() {
         <div className="player-area-wrapper">
           <div style={{ opacity: canDiscard ? 1 : 0.4, transition: 'opacity 0.2s', pointerEvents: canDiscard ? 'auto' : 'none' }}>
             <DiscardArea />
+          </div>
+          
+          <div style={{ position: 'absolute', bottom: '110px', right: '110px', pointerEvents: 'none', zIndex: 10 }}>
+            {leftDiscardPile.slice(-5).map((tile, i) => (
+              <div key={i} style={{ position: 'absolute', bottom: `${i * 10}px`, right: 0, transform: 'scale(0.8)', zIndex: i }}>
+                <Tile tile={tile} />
+              </div>
+            ))}
+            {leftDiscardPile.length > 0 && (
+              <div style={{ position: 'absolute', bottom: '-20px', right: '-10px', color: '#aaa', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                Önceki Oyuncu
+              </div>
+            )}
           </div>
 
           <div className="point-indicator">

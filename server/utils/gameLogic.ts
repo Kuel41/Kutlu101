@@ -54,7 +54,7 @@ export function shuffleDeck(deck: TileData[]): TileData[] {
   return shuffled;
 }
 
-export function initializeGame(currentRound: number = 1): GameState {
+export function initializeGame(roundNumber: number, existingScores?: Record<string, number>): GameState {
   let deck = shuffleDeck(generateDeck());
   
   const indicator = deck.pop()!;
@@ -70,15 +70,15 @@ export function initializeGame(currentRound: number = 1): GameState {
   }
 
   const turnOrder = ['player1', 'player4', 'player3', 'player2'];
-  const startingPlayerIndex = (currentRound - 1) % 4;
+  const startingPlayerIndex = (roundNumber - 1) % 4;
   const startingPlayerId = turnOrder[startingPlayerIndex];
 
   const distributeTiles = (deck: TileData[]) => {
-    const players = {
-      player1: { id: 'player1', name: 'Player 1', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
-      player2: { id: 'player2', name: 'Player 2', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
-      player3: { id: 'player3', name: 'Player 3', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
-      player4: { id: 'player4', name: 'Player 4', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
+    const players: any = {
+      player1: { id: 'player1', name: 'Player 1', rack: [] as RackSlot[], score: existingScores ? (existingScores['player1'] || 0) : 0 },
+      player2: { id: 'player2', name: 'Player 2', rack: [] as RackSlot[], score: existingScores ? (existingScores['player2'] || 0) : 0 },
+      player3: { id: 'player3', name: 'Player 3', rack: [] as RackSlot[], score: existingScores ? (existingScores['player3'] || 0) : 0 },
+      player4: { id: 'player4', name: 'Player 4', rack: [] as RackSlot[], score: existingScores ? (existingScores['player4'] || 0) : 0 },
     };
 
     const p1Tiles = deck.splice(0, startingPlayerId === 'player1' ? 22 : 21);
@@ -139,5 +139,8 @@ export function initializeGame(currentRound: number = 1): GameState {
     hasOpenedHand: { player1: false, player2: false, player3: false, player4: false },
     discardPiles,
     tiles: [],
+    highestSeriesPoint: 0,
+    highestPairsPoint: 0,
+    turnStartTime: 0,
   };
 }

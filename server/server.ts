@@ -3,7 +3,7 @@ import http from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { initializeGame } from './utils/gameLogic';
-import { GameState } from './types';
+import { GameState, RoomSettings } from './types';
 import { playBotLogic, getBotDiscardDecision } from './utils/botAI';
 
 const app = express();
@@ -31,6 +31,11 @@ interface Room {
   players: RoomPlayer[];
   gameState: GameState | null;
   botTimers: ReturnType<typeof setTimeout>[];
+  turnTimer: ReturnType<typeof setTimeout> | null;
+  settings: RoomSettings;
+  voteActive: boolean;
+  voteTimer: ReturnType<typeof setTimeout> | null;
+  votes: Record<string, boolean>; // true for Yes, false for No
 }
 
 const rooms: Record<string, Room> = {};
@@ -48,22 +53,97 @@ function sanitizeState(state: GameState, myGamePlayerId: string): GameState {
   return sanitized;
 }
 
-function calculateEndRoundScores(state: GameState, winner: string | null, okeyFinish: boolean) {
+function calculateEndRoundScores(state: GameState, winner: string | null, okeyFinish: boolean, settings: RoomSettings) {
+  const multiplier = (okeyFinish && settings.okeyCezasi) ? 2 : 1;
+
   for (const pid in state.players) {
     if (pid === winner) {
-      state.players[pid].score -= (okeyFinish ? 202 : 101);
+      state.players[pid].score += 0; 
     } else {
+      let penalty = 0;
       if (state.hasOpenedHand[pid]) {
         let sum = 0;
         state.players[pid].rack.forEach((s: any) => {
           if (s.tile) sum += s.tile.value;
         });
-        state.players[pid].score += sum;
+        penalty = sum;
       } else {
-        state.players[pid].score += 200;
+        penalty = 200;
       }
     }
   }
+
+  // Check if max score is reached
+  const gameEnded = Object.values(state.players).some((p: any) => p.score >= settings.maxScore);
+  return gameEnded;
+}
+
+function startTurnTimer(roomId: string) {
+  const room = rooms[roomId];
+  if (!room || !room.gameState) return;
+  
+  if (room.turnTimer) clearTimeout(room.turnTimer);
+
+  const state = room.gameState;
+  state.turnStartTime = Date.now();
+
+  room.turnTimer = setTimeout(() => {
+    const r = rooms[roomId];
+    if (!r || !r.gameState) return;
+    const s = r.gameState;
+    const currentId = s.currentPlayerId;
+
+    // Is it a bot? bots shouldn't hit this timeout usually, but just in case
+    const player = r.players.find(p => p.gamePlayerId === currentId);
+    if (player?.isBot) return;
+
+    // Auto-draw if hasn't drawn
+    if (!s.hasDrawn) {
+      const tileCount = s.players[currentId].rack.filter((sl: any) => sl.tile !== null).length;
+      if (tileCount < 22 && s.deck.length > 0) {
+        const drawnTile = s.deck.pop()!;
+        const emptyIdx = s.players[currentId].rack.findIndex((sl: any) => sl.tile === null);
+        if (emptyIdx !== -1) s.players[currentId].rack[emptyIdx].tile = drawnTile;
+        s.hasDrawn = true;
+      }
+    }
+
+    // Auto-discard random tile
+    const rack = s.players[currentId].rack;
+    const validSlots = rack.filter((sl: any) => sl.tile !== null);
+    if (validSlots.length > 0) {
+      const randomSlot = validSlots[Math.floor(Math.random() * validSlots.length)];
+      const sourceIndex = rack.findIndex((sl: any) => sl.id === randomSlot.id);
+      
+      const discardedTile = rack[sourceIndex].tile!;
+      rack[sourceIndex].tile = null;
+      
+      if (!s.discardPiles[currentId]) s.discardPiles[currentId] = [];
+      s.discardPiles[currentId].push(discardTile);
+      
+      const remainingTiles = rack.filter((sl: any) => sl.tile !== null).length;
+      if (remainingTiles === 0) {
+        const isGameEnded = calculateEndRoundScores(s, currentId, discardedTile.isOkey, room.settings);
+        broadcastState(roomId);
+        io.to(roomId).emit('gameFinished', { winner: currentId, okeyFinish: discardedTile.isOkey, isGameEnded });
+        return;
+      }
+    }
+
+    // Pass turn
+    const nextIndex = (TURN_ORDER.indexOf(currentId) + 1) % TURN_ORDER.length;
+    s.currentPlayerId = TURN_ORDER[nextIndex];
+    s.hasDrawn = false;
+    broadcastState(roomId);
+    
+    // Check if next is bot
+    const nextPlayer = r.players.find(p => p.gamePlayerId === s.currentPlayerId);
+    if (nextPlayer?.isBot) {
+      scheduleBotTurn(roomId);
+    } else {
+      startTurnTimer(roomId);
+    }
+  }, 30000); // 30 seconds
 }
 
 function broadcastState(roomId: string) {
@@ -130,9 +210,9 @@ function scheduleBotTurn(roomId: string) {
 
     const remaining = s.players[currentId].rack.filter((sl: any) => sl.tile !== null).length;
     if (remaining === 0) {
-      calculateEndRoundScores(s, currentId, discardTile.isOkey);
+      const isGameEnded = calculateEndRoundScores(s, currentId, discardTile.isOkey, room.settings);
       broadcastState(roomId); // Broadcast final scores
-      io.to(roomId).emit('gameFinished', { winner: currentId, okeyFinish: discardTile.isOkey });
+      io.to(roomId).emit('gameFinished', { winner: currentId, okeyFinish: discardTile.isOkey, isGameEnded });
       return; // Stop bot loop if game ended
     }
 
@@ -141,7 +221,13 @@ function scheduleBotTurn(roomId: string) {
     s.hasDrawn = false;
 
     broadcastState(roomId);
-    scheduleBotTurn(roomId);
+    
+    const nextPlayer = r.players.find(p => p.gamePlayerId === s.currentPlayerId);
+    if (nextPlayer?.isBot) {
+      scheduleBotTurn(roomId);
+    } else {
+      startTurnTimer(roomId);
+    }
   }, 1500);
 
   room.botTimers.push(timer);
@@ -186,16 +272,52 @@ function startGame(roomId: string) {
     isBot: p.isBot
   })));
 
-  // Schedule bot turn if first turn is a bot
-  scheduleBotTurn(roomId);
+  const firstPlayer = room.players.find(p => p.gamePlayerId === room.gameState!.currentPlayerId);
+  if (firstPlayer?.isBot) {
+    scheduleBotTurn(roomId);
+  } else {
+    startTurnTimer(roomId);
+  }
 }
 
 io.on('connection', (socket: Socket) => {
   console.log('A user connected:', socket.id);
 
+  socket.on('createRoom', ({ username, roomId, settings }) => {
+    if (rooms[roomId]) {
+      socket.emit('error', 'Bu oda kodu zaten kullanımda!');
+      return;
+    }
+    rooms[roomId] = {
+      id: roomId,
+      players: [],
+      gameState: null,
+      botTimers: [],
+      turnTimer: null,
+      settings: settings || { isKatlamali: false, islekCezasi: false, okeyCezasi: false, maxScore: 800 },
+      voteActive: false,
+      voteTimer: null,
+      votes: {}
+    };
+    
+    // Kurucu da odaya katılsın
+    const gamePlayerId = 'player1';
+    rooms[roomId].players.push({ socketId: socket.id, username, gamePlayerId, isBot: false });
+    socket.join(roomId);
+
+    io.to(roomId).emit('roomUpdate', rooms[roomId].players.map(p => ({
+      username: p.username,
+      gamePlayerId: p.gamePlayerId,
+      socketId: p.socketId,
+      isBot: p.isBot
+    })));
+    socket.emit('roomCreated', roomId);
+  });
+
   socket.on('joinRoom', ({ username, roomId }) => {
     if (!rooms[roomId]) {
-      rooms[roomId] = { id: roomId, players: [], gameState: null, botTimers: [] };
+      socket.emit('error', 'Bu Oda Bulunmamaktadır');
+      return;
     }
     const room = rooms[roomId];
 
@@ -238,8 +360,10 @@ io.on('connection', (socket: Socket) => {
       if (idx !== -1) {
         room.players.splice(idx, 1);
         if (room.players.filter(p => !p.isBot).length === 0) {
-          // Clear bot timers and delete room
+          // Clear bot timers and turn timer, delete room
           room.botTimers.forEach(t => clearTimeout(t));
+          if (room.turnTimer) clearTimeout(room.turnTimer);
+          if (room.voteTimer) clearTimeout(room.voteTimer);
           delete rooms[roomId];
         } else {
           io.to(roomId).emit('roomUpdate', room.players.map(p => ({
@@ -268,9 +392,9 @@ io.on('connection', (socket: Socket) => {
       const currentTileCount = state.players[myId].rack.filter((s: any) => s.tile !== null).length;
       if (currentTileCount >= 22) return; // 22 taşı varsa çekemez
       if (state.deck.length === 0) {
-        calculateEndRoundScores(state, null, false);
+        const isGameEnded = calculateEndRoundScores(state, null, false, room.settings);
         broadcastState(roomId);
-        io.to(roomId).emit('gameFinished', { winner: null, reason: 'deck_empty' });
+        io.to(roomId).emit('gameFinished', { winner: null, reason: 'deck_empty', isGameEnded });
         return;
       }
       const drawnTile = state.deck.pop();
@@ -291,9 +415,9 @@ io.on('connection', (socket: Socket) => {
       state.players[myId].rack[sourceIndex].tile = null;
       const remainingTiles = state.players[myId].rack.filter((s: any) => s.tile !== null).length;
       if (remainingTiles === 0) {
-        calculateEndRoundScores(state, myId, discardedTile.isOkey);
+        const isGameEnded = calculateEndRoundScores(state, myId, discardedTile.isOkey, room.settings);
         broadcastState(roomId); // Broadcast final scores
-        io.to(roomId).emit('gameFinished', { winner: myId, okeyFinish: discardedTile.isOkey });
+        io.to(roomId).emit('gameFinished', { winner: myId, okeyFinish: discardedTile.isOkey, isGameEnded });
         return; // Early return to avoid changing turn if game is over
       }
       state.discardPiles[myId] = [...(state.discardPiles[myId] || []), discardedTile];
@@ -301,9 +425,34 @@ io.on('connection', (socket: Socket) => {
       state.currentPlayerId = TURN_ORDER[nextIndex];
       state.hasDrawn = false;
       broadcastState(roomId);
-      scheduleBotTurn(roomId);
+      
+      const nextPlayer = room.players.find(p => p.gamePlayerId === state.currentPlayerId);
+      if (nextPlayer?.isBot) {
+        scheduleBotTurn(roomId);
+      } else {
+        startTurnTimer(roomId);
+      }
     } else if (action === 'OPEN_HAND') {
       if (state.currentPlayerId !== myId) return;
+
+      if (room.settings.isKatlamali) {
+        const { isSeries, isPairs, seriesPoint, pairsPoint } = payload;
+        
+        if (isSeries) {
+          if (state.highestSeriesPoint > 0 && seriesPoint <= state.highestSeriesPoint) {
+            socket.emit('error', `Katlamalı mod! Seri açmak için ${state.highestSeriesPoint} puandan fazlasını açmalısınız.`);
+            return;
+          }
+          state.highestSeriesPoint = seriesPoint;
+        } else if (isPairs) {
+          if (state.highestPairsPoint > 0 && pairsPoint <= state.highestPairsPoint) {
+            socket.emit('error', `Katlamalı mod! Çift açmak için ${state.highestPairsPoint} çiftten fazlasını açmalısınız.`);
+            return;
+          }
+          state.highestPairsPoint = pairsPoint;
+        }
+      }
+
       state.tableMelds = [...state.tableMelds, ...payload.melds];
       state.players[myId].rack = payload.newRack;
       state.hasOpenedHand[myId] = true;
@@ -311,9 +460,80 @@ io.on('connection', (socket: Socket) => {
     } else if (action === 'UPDATE_RACK') {
       state.players[myId].rack = payload.newRack;
       broadcastState(roomId);
+    } else if (action === 'START_VOTE') {
+      if (room.voteActive) return; // Already voting
+      room.voteActive = true;
+      room.votes = {};
+      room.votes[myId] = true; // Starter automatically votes Yes
+      
+      const realPlayersCount = room.players.filter(p => !p.isBot).length;
+      if (realPlayersCount <= 1) {
+        socket.emit('error', 'Oylama başlatmak için en az 2 gerçek oyuncu olmalı!');
+        room.voteActive = false;
+        return;
+      }
+      
+      io.to(roomId).emit('voteStarted', { starterId: myId });
+      
+      room.voteTimer = setTimeout(() => {
+        finalizeVote(roomId);
+      }, 30000);
+    } else if (action === 'CAST_VOTE') {
+      if (!room.voteActive) return;
+      if (room.votes[myId] !== undefined) return; // Already voted
+      room.votes[myId] = payload.vote;
+      
+      // If everyone voted, finish early
+      const realPlayers = room.players.filter(p => !p.isBot);
+      if (Object.keys(room.votes).length === realPlayers.length) {
+        if (room.voteTimer) clearTimeout(room.voteTimer);
+        finalizeVote(roomId);
+      }
+    } else if (action === 'START_NEXT_ROUND') {
+      const existingScores: Record<string, number> = {};
+      for (const pid in state.players) {
+        existingScores[pid] = state.players[pid].score;
+      }
+      // Assuming roundNumber logic here, we'll just pass 1 for now or increment if we tracked it
+      room.gameState = initializeGame(1, existingScores);
+      room.gameState.turnStartTime = Date.now();
+      broadcastState(roomId);
+      const nextPlayer = room.players.find(p => p.gamePlayerId === room.gameState!.currentPlayerId);
+      if (nextPlayer?.isBot) {
+        scheduleBotTurn(roomId);
+      } else {
+        startTurnTimer(roomId);
+      }
+    }
     }
   });
 });
+
+function finalizeVote(roomId: string) {
+  const room = rooms[roomId];
+  if (!room) return;
+  room.voteActive = false;
+  
+  const realPlayers = room.players.filter(p => !p.isBot);
+  let yesVotes = 0;
+  let noVotes = 0;
+  
+  for (const p of realPlayers) {
+    if (room.votes[p.gamePlayerId] === true) yesVotes++;
+    else noVotes++; // Non-voters are treated as NO
+  }
+  
+  io.to(roomId).emit('voteFinished', { yesVotes, noVotes });
+  
+  if (yesVotes > noVotes) {
+    // End game
+    if (room.gameState) {
+      calculateEndRoundScores(room.gameState, null, false, room.settings);
+      broadcastState(roomId);
+      io.to(roomId).emit('gameFinished', { winner: null, reason: 'vote_ended', isGameEnded: true });
+    }
+  }
+}
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
