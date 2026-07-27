@@ -76,9 +76,9 @@ export function initializeGame(currentRound: number = 1): GameState {
   const distributeTiles = (deck: TileData[]) => {
     const players = {
       player1: { id: 'player1', name: 'Player 1', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
-      bot1: { id: 'player2', name: 'Player 2', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
-      bot2: { id: 'player3', name: 'Player 3', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
-      bot3: { id: 'player4', name: 'Player 4', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
+      player2: { id: 'player2', name: 'Player 2', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
+      player3: { id: 'player3', name: 'Player 3', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
+      player4: { id: 'player4', name: 'Player 4', rack: [] as RackSlot[], openedSets: [], openedPairs: [], score: 0 },
     };
 
     const p1Tiles = deck.splice(0, startingPlayerId === 'player1' ? 22 : 21);
@@ -113,9 +113,9 @@ export function initializeGame(currentRound: number = 1): GameState {
     };
 
     players.player1.rack = createRackSlots(p1Tiles, 'p1');
-    players.bot1.rack = createRackSlots(b1Tiles, 'b1');
-    players.bot2.rack = createRackSlots(b2Tiles, 'b2');
-    players.bot3.rack = createRackSlots(b3Tiles, 'b3');
+    players.player2.rack = createRackSlots(b1Tiles, 'p2');
+    players.player3.rack = createRackSlots(b2Tiles, 'p3');
+    players.player4.rack = createRackSlots(b3Tiles, 'p4');
 
     return { players, remainingDeck: deck };
   };
@@ -124,9 +124,9 @@ export function initializeGame(currentRound: number = 1): GameState {
 
   const discardPiles: Record<string, TileData[]> = {
     player1: [],
-    bot1: [],
-    bot2: [],
-    bot3: [],
+    player2: [],
+    player3: [],
+    player4: [],
   };
 
   return {
@@ -136,7 +136,7 @@ export function initializeGame(currentRound: number = 1): GameState {
     tableMelds: [],
     currentPlayerId: startingPlayerId,
     hasDrawn: false,
-    hasOpenedHand: { player1: false, bot1: false, bot2: false, bot3: false },
+    hasOpenedHand: { player1: false, player2: false, player3: false, player4: false },
     discardPiles,
     tiles: [],
   };
