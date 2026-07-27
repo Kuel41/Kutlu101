@@ -244,7 +244,9 @@ io.on('connection', (socket: Socket) => {
         broadcastState(roomId);
       }
     } else if (action === 'DISCARD_TILE') {
-      if (state.currentPlayerId !== myId || !state.hasDrawn) return;
+      const tileCount = state.players[myId].rack.filter((s: any) => s.tile !== null).length;
+      const canDiscard = state.hasDrawn || tileCount >= 22;
+      if (state.currentPlayerId !== myId || !canDiscard) return;
       const sourceIndex = state.players[myId].rack.findIndex((s: any) => s.tile?.id === payload.tileId);
       if (sourceIndex === -1) return;
       const discardedTile = state.players[myId].rack[sourceIndex].tile!;
