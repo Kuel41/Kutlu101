@@ -172,7 +172,7 @@ export const autoSortPairs = (rack: RackSlot[]): RackSlot[] => {
   }
 
   // Extract exactly pairs (2 of the same)
-  for (const [key, tiles] of map.entries()) {
+  for (const [_key, tiles] of map.entries()) {
     while (tiles.length >= 2) {
       // Take 2 identical tiles to form a pair
       const pair = [tiles.shift()!, tiles.shift()!];

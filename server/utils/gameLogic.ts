@@ -1,4 +1,4 @@
-import type { TileData, TileColor, GameState, PlayerState, RackSlot } from '../types';
+import type { TileData, TileColor, GameState, RackSlot } from '../types';
 
 export const COLORS: TileColor[] = ['red', 'black', 'blue', 'yellow'];
 
@@ -60,13 +60,7 @@ export function initializeGame(currentRound: number = 1): GameState {
   const indicator = deck.pop()!;
   
   const okeyValue = indicator.value === 13 ? 1 : indicator.value + 1;
-  const okey: TileData = {
-    id: 'okey-ref',
-    color: indicator.color,
-    value: okeyValue,
-    isFalseOkey: false,
-    isOkey: true,
-  };
+
 
   // Mark the actual Okey tiles in the deck
   for (const tile of deck) {

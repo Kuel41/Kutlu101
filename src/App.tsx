@@ -22,7 +22,7 @@ import { Tile } from './components/Tile';
 
 const turnOrder = ['player1', 'bot3', 'bot2', 'bot1'];
 
-const Opponent: React.FC<{ position: 'top' | 'left' | 'right', name: string, tileCount: number, discard: string, isActive?: boolean }> = ({ position, name, tileCount, discard, isActive }) => {
+const Opponent: React.FC<{ position: 'top' | 'left' | 'right', name: string, tileCount: number, discard: string, isActive?: boolean }> = ({ position, name, tileCount: _tileCount, discard: _discard, isActive }) => {
   return (
     <div className={`opponent-${position} ${isActive ? 'active-turn' : ''}`}>
       <div className="flex-center" style={{ gap: '4px' }}>
@@ -192,8 +192,8 @@ function App() {
           const newTableMelds = playResult.newTableMelds;
           
           const hasOpenedNow = playResult.hasOpenedNow;
-          let highestSeries = matchState.highestSeriesPoint;
-          let highestPairs = matchState.highestPairsPoint;
+          let _highestSeries = matchState.highestSeriesPoint;
+          let _highestPairs = matchState.highestPairsPoint;
 
           if (hasOpenedNow && !prev.hasOpenedHand[currentBotId as keyof typeof prev.hasOpenedHand] && matchState.isKatlamali) {
             // Update katlamalı score

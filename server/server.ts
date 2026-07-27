@@ -3,8 +3,7 @@ import http from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { initializeGame } from './utils/gameLogic';
-import { GameState, TileData, PlayerState, RackSlot } from './types';
-import { isTilePlayable } from './utils/ruleEngine';
+import { GameState } from './types';
 
 const app = express();
 app.use(cors());
