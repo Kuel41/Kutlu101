@@ -17,6 +17,7 @@ export interface PlayerState {
   id: string;
   name: string;
   rack: RackSlot[]; // Fixed length array (e.g., 28 slots for a 2-tier rack)
+  score: number;
 }
 
 export interface GameState {
