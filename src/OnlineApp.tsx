@@ -20,7 +20,9 @@ import {
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Tile } from './components/Tile';
 
-const SERVER_URL = 'http://localhost:3001';
+// NOT: Uygulamayı Render'a yüklediğinde sana verilen linki (örn: https://kutlu-server.onrender.com) 
+// aşağıdaki http://localhost:3001 yerine yapıştırıp pushlamalısın!
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 const Opponent: React.FC<{ position: string, name: string, tileCount: number, discard: string, isActive?: boolean }> = ({ position, name, tileCount: _tileCount, discard: _discard, isActive }) => {
   return (
