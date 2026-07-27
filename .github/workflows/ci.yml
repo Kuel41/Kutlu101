@@ -6,20 +6,17 @@ on:
   pull_request:
     branches: [ main ]
 
-# GitHub Actions Node.js 20 deprecated uyarısını (actions/checkout@v4 vs. için) gidermeye / sessize almaya yardımcı ortam değişkeni
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
+# Node.js 20 deprecation uyarısını kökten çözmek için aksiyonların v7 sürümleri kullanılıyor
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       
     - name: Setup Node.js 24
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
         node-version: 24.x
         cache: 'npm'
@@ -34,7 +31,7 @@ jobs:
       run: npm run build
       
     - name: Upload Build Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: build-output
         path: dist/
