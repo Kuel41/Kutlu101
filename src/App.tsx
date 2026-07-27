@@ -77,6 +77,7 @@ function App() {
     if (gameState && gameState.deck.length === 0 && !matchState.isRoundOver) {
       handleEndRound();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.deck.length]);
 
   const handleEndRound = (winnerId?: string, isOkeyFinish?: boolean) => {
@@ -252,6 +253,7 @@ function App() {
     }, 1000); 
 
     return () => clearTimeout(drawTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.currentPlayerId, matchState.isRoundOver]);
 
   const handleDrawDeck = () => {
