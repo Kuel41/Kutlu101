@@ -447,12 +447,12 @@ export default function OnlineApp() {
           </div>
           
           <div style={{ position: 'absolute', bottom: '110px', right: '110px', pointerEvents: 'none', zIndex: 10 }}>
-            {leftDiscardPile.slice(-5).map((tile, i) => (
+            {rightDiscardPile.slice(-5).map((tile, i) => (
               <div key={i} style={{ position: 'absolute', bottom: `${i * 10}px`, right: 0, transform: 'scale(0.8)', zIndex: i }}>
                 <Tile tile={tile} />
               </div>
             ))}
-            {leftDiscardPile.length > 0 && (
+            {rightDiscardPile.length > 0 && (
               <div style={{ position: 'absolute', bottom: '-20px', right: '-10px', color: '#aaa', fontSize: '12px', whiteSpace: 'nowrap' }}>
                 Önceki Oyuncu
               </div>

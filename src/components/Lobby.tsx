@@ -17,6 +17,8 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoin, onCreate, error }) => {
   const [maxScore, setMaxScore] = useState(800);
   const [islekCezasi, setIslekCezasi] = useState(false);
   const [okeyCezasi, setOkeyCezasi] = useState(false);
+  
+  const [isInvite, setIsInvite] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -24,6 +26,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoin, onCreate, error }) => {
     if (roomParam) {
       setRoomId(roomParam);
       setActiveTab('join');
+      setIsInvite(true);
     }
   }, []);
 
@@ -48,20 +51,26 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoin, onCreate, error }) => {
       <div className="lobby-card" style={{ maxWidth: '400px' }}>
         <h1>101 KUTLU</h1>
         
-        <div className="lobby-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'join' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('join')}
-          >
-            Odaya Katıl
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'create' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('create')}
-          >
-            Oda Kur
-          </button>
-        </div>
+        {!isInvite && (
+          <div className="lobby-tabs">
+            <button 
+              className={`tab-btn ${activeTab === 'join' ? 'active' : ''}`} 
+              onClick={() => setActiveTab('join')}
+            >
+              Odaya Katıl
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === 'create' ? 'active' : ''}`} 
+              onClick={() => setActiveTab('create')}
+            >
+              Oda Kur
+            </button>
+          </div>
+        )}
+
+        {isInvite && (
+          <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Davetli Odaya Katıl</h2>
+        )}
 
         <form onSubmit={handleSubmit} className="lobby-form" style={{ marginTop: '20px' }}>
           <input
@@ -72,14 +81,16 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoin, onCreate, error }) => {
             maxLength={12}
             required
           />
-          <input
-            type="text"
-            placeholder="Oda Kodu (örn: 1453)"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-            maxLength={8}
-            required
-          />
+          {!isInvite && (
+            <input
+              type="text"
+              placeholder="Oda Kodu (örn: 1453)"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+              maxLength={8}
+              required
+            />
+          )}
 
           {activeTab === 'create' && (
             <div className="settings-panel">
