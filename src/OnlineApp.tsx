@@ -22,7 +22,7 @@ import { Tile } from './components/Tile';
 
 // NOT: Uygulamayı Render'a yüklediğinde sana verilen linki (örn: https://kutlu-server.onrender.com) 
 // aşağıdaki http://localhost:3001 yerine yapıştırıp pushlamalısın!
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+const SERVER_URL = 'https://kutlu101.onrender.com';
 
 const Opponent: React.FC<{ position: string, name: string, tileCount: number, discard: string, isActive?: boolean }> = ({ position, name, tileCount: _tileCount, discard: _discard, isActive }) => {
   return (
