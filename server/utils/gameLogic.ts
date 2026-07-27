@@ -135,7 +135,7 @@ export function initializeGame(currentRound: number = 1): GameState {
     players,
     tableMelds: [],
     currentPlayerId: startingPlayerId,
-    hasDrawn: false,
+    hasDrawn: true, // Starting player already has 22 tiles, so they "have drawn"
     hasOpenedHand: { player1: false, player2: false, player3: false, player4: false },
     discardPiles,
     tiles: [],

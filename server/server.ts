@@ -93,18 +93,22 @@ function scheduleBotTurn(roomId: string) {
     const s = r.gameState;
     if (s.currentPlayerId !== currentId) return;
 
-    // Bot draws a tile
-    if (s.deck.length === 0) {
-      calculateEndRoundScores(s, null, false);
-      broadcastState(roomId);
-      io.to(roomId).emit('gameFinished', { winner: null, reason: 'deck_empty' });
-      return;
-    }
-    const drawnTile = s.deck.pop()!;
+    // Bot draws a tile if needed
     const botRack = s.players[currentId].rack;
-    const emptyIdx = botRack.findIndex((sl: any) => sl.tile === null);
-    if (emptyIdx !== -1) botRack[emptyIdx].tile = drawnTile;
-    s.hasDrawn = true;
+    const currentTileCount = botRack.filter((sl: any) => sl.tile !== null).length;
+    
+    if (currentTileCount < 22) {
+      if (s.deck.length === 0) {
+        calculateEndRoundScores(s, null, false);
+        broadcastState(roomId);
+        io.to(roomId).emit('gameFinished', { winner: null, reason: 'deck_empty' });
+        return;
+      }
+      const drawnTile = s.deck.pop()!;
+      const emptyIdx = botRack.findIndex((sl: any) => sl.tile === null);
+      if (emptyIdx !== -1) botRack[emptyIdx].tile = drawnTile;
+      s.hasDrawn = true;
+    }
 
     // Bot plays logic
     const playResult = playBotLogic(
