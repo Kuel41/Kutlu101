@@ -89,6 +89,11 @@ export default function OnlineApp() {
     setJoined(true);
   };
 
+  const handleStartGame = () => {
+    if (!socket || !roomId) return;
+    socket.emit('startGame', { roomId });
+  };
+
   const emitAction = (action: string, payload: any = {}) => {
     if (!socket || !roomId) return;
     socket.emit('action', { roomId, action, payload });
@@ -99,13 +104,42 @@ export default function OnlineApp() {
   }
 
   if (!gameState) {
+    const emptySlots = 4 - roomPlayers.length;
     return (
-      <div style={{color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#111'}}>
-        <h2>Oda: {roomId}</h2>
-        <p>Oyuncular bekleniyor... ({roomPlayers.length}/4)</p>
-        <ul>
-          {roomPlayers.map(p => <li key={p.gamePlayerId}>{p.username}</li>)}
-        </ul>
+      <div style={{color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#111', gap: '16px'}}>
+        <h2 style={{color: '#ffd700', fontSize: '28px'}}>101 KUTLU</h2>
+        <p style={{color: '#aaa'}}>Oda: <strong style={{color: 'white'}}>{roomId}</strong></p>
+        <div style={{background: '#1e1e1e', borderRadius: '12px', padding: '24px', minWidth: '280px'}}>
+          <p style={{marginBottom: '12px', color: '#aaa', textAlign: 'center'}}>Oyuncular ({roomPlayers.length}/4)</p>
+          {roomPlayers.map(p => (
+            <div key={p.gamePlayerId} style={{padding: '8px 12px', marginBottom: '8px', background: '#2a2a2a', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+              <span style={{color: '#4caf50'}}>●</span> {p.username} {p.gamePlayerId === myGamePlayerId ? '(Sen)' : ''}
+            </div>
+          ))}
+          {Array.from({length: emptySlots}).map((_, i) => (
+            <div key={i} style={{padding: '8px 12px', marginBottom: '8px', background: '#1a1a1a', borderRadius: '8px', color: '#555', display: 'flex', alignItems: 'center', gap: '8px', border: '1px dashed #333'}}>
+              <span>🤖</span> Bot (boş slot)
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={handleStartGame}
+          style={{
+            padding: '14px 40px',
+            background: 'linear-gradient(135deg, #4caf50, #2e7d32)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '10px',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            marginTop: '8px',
+            boxShadow: '0 4px 15px rgba(76,175,80,0.4)'
+          }}
+        >
+          🚀 Oyunu Başlat
+        </button>
+        <p style={{color: '#666', fontSize: '13px'}}>Boş slotlar otomatik olarak botlarla doldurulur</p>
       </div>
     );
   }
