@@ -48,6 +48,24 @@ function sanitizeState(state: GameState, myGamePlayerId: string): GameState {
   return sanitized;
 }
 
+function calculateEndRoundScores(state: GameState, winner: string | null, okeyFinish: boolean) {
+  for (const pid in state.players) {
+    if (pid === winner) {
+      state.players[pid].score -= (okeyFinish ? 202 : 101);
+    } else {
+      if (state.hasOpenedHand[pid]) {
+        let sum = 0;
+        state.players[pid].rack.forEach((s: any) => {
+          if (s.tile) sum += s.tile.value;
+        });
+        state.players[pid].score += sum;
+      } else {
+        state.players[pid].score += 200;
+      }
+    }
+  }
+}
+
 function broadcastState(roomId: string) {
   const room = rooms[roomId];
   if (!room || !room.gameState) return;
@@ -77,9 +95,7 @@ function scheduleBotTurn(roomId: string) {
 
     // Bot draws a tile
     if (s.deck.length === 0) {
-      for (const pid in s.players) {
-        s.players[pid].score -= 200; // Herkese 200 ceza
-      }
+      calculateEndRoundScores(s, null, false);
       broadcastState(roomId);
       io.to(roomId).emit('gameFinished', { winner: null, reason: 'deck_empty' });
       return;
@@ -110,7 +126,10 @@ function scheduleBotTurn(roomId: string) {
 
     const remaining = s.players[currentId].rack.filter((sl: any) => sl.tile !== null).length;
     if (remaining === 0) {
+      calculateEndRoundScores(s, currentId, discardTile.isOkey);
+      broadcastState(roomId); // Broadcast final scores
       io.to(roomId).emit('gameFinished', { winner: currentId, okeyFinish: discardTile.isOkey });
+      return; // Stop bot loop if game ended
     }
 
     const nextIndex = (TURN_ORDER.indexOf(currentId) + 1) % TURN_ORDER.length;
@@ -245,9 +264,7 @@ io.on('connection', (socket: Socket) => {
       const currentTileCount = state.players[myId].rack.filter((s: any) => s.tile !== null).length;
       if (currentTileCount >= 22) return; // 22 taşı varsa çekemez
       if (state.deck.length === 0) {
-        for (const pid in state.players) {
-          state.players[pid].score -= 200; // Herkese 200 ceza
-        }
+        calculateEndRoundScores(state, null, false);
         broadcastState(roomId);
         io.to(roomId).emit('gameFinished', { winner: null, reason: 'deck_empty' });
         return;
@@ -270,7 +287,10 @@ io.on('connection', (socket: Socket) => {
       state.players[myId].rack[sourceIndex].tile = null;
       const remainingTiles = state.players[myId].rack.filter((s: any) => s.tile !== null).length;
       if (remainingTiles === 0) {
+        calculateEndRoundScores(state, myId, discardedTile.isOkey);
+        broadcastState(roomId); // Broadcast final scores
         io.to(roomId).emit('gameFinished', { winner: myId, okeyFinish: discardedTile.isOkey });
+        return; // Early return to avoid changing turn if game is over
       }
       state.discardPiles[myId] = [...(state.discardPiles[myId] || []), discardedTile];
       const nextIndex = (TURN_ORDER.indexOf(myId) + 1) % TURN_ORDER.length;

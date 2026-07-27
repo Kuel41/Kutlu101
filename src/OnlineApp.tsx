@@ -261,15 +261,17 @@ export default function OnlineApp() {
 
         {/* Scoreboard Panel */}
         <div className="scoreboard-panel">
-          <div className="scoreboard-title">Oyuncular</div>
+          <div className="scoreboard-title">Puan Tablosu</div>
           {roomPlayers.map(p => {
             const playerState = gameState.players[p.gamePlayerId as keyof typeof gameState.players];
-            const tileCount = playerState ? playerState.rack.filter((s: RackSlot) => s.tile !== null).length : 0;
+            const score = playerState ? playerState.score : 0;
             const isActive = gameState.currentPlayerId === p.gamePlayerId;
             return (
               <div key={p.gamePlayerId} className="scoreboard-row" style={{color: isActive ? '#ffd700' : 'white', fontWeight: isActive ? 'bold' : 'normal'}}>
                 <span>{p.username.substring(0, 10)}{p.gamePlayerId === myGamePlayerId ? ' 🙋' : ''}</span>
-                <span>{tileCount} taş</span>
+                <span style={{ color: score > 0 ? '#ff5252' : score < 0 ? '#4caf50' : 'white' }}>
+                  {score > 0 ? `+${score}` : score} Puan
+                </span>
               </div>
             );
           })}
