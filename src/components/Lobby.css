@@ -1,0 +1,81 @@
+.lobby-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  background-color: rgba(0, 0, 0, 0.8);
+  background-image: radial-gradient(circle, #2a2a35, #111);
+}
+
+.lobby-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  text-align: center;
+  color: white;
+  min-width: 300px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.lobby-card h1 {
+  margin-top: 0;
+  font-size: 2rem;
+  color: #f1c40f;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.lobby-card h2 {
+  font-size: 1.2rem;
+  margin-bottom: 30px;
+  opacity: 0.8;
+}
+
+.lobby-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.lobby-form input {
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.lobby-form button {
+  padding: 15px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  color: white;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);
+}
+
+.lobby-form button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(46, 204, 113, 0.6);
+}
+
+.lobby-form button:active {
+  transform: translateY(0);
+}
+
+.lobby-error {
+  margin-top: 15px;
+  color: #e74c3c;
+  font-weight: bold;
+  background: rgba(231, 76, 60, 0.2);
+  padding: 10px;
+  border-radius: 5px;
+}
