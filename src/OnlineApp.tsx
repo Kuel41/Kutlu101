@@ -392,12 +392,28 @@ export default function OnlineApp() {
               </div>
             );
           })}
-          
+        </div>
+
+        {/* Voting Button (Bottom Right) */}
+        <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 100 }}>
           <button 
             onClick={handleStartVote}
-            style={{ width: '100%', marginTop: '15px', background: 'rgba(255,0,0,0.5)', border: '1px solid red', color: 'white', padding: '5px', borderRadius: '5px', cursor: 'pointer' }}
+            style={{ 
+              background: 'linear-gradient(135deg, #f44336, #d32f2f)', 
+              color: 'white', 
+              padding: '12px 24px', 
+              borderRadius: '8px', 
+              cursor: 'pointer',
+              border: 'none',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              boxShadow: '0 4px 15px rgba(244, 67, 54, 0.4)',
+              transition: 'transform 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
-            Oyunu Sonlandırmayı Oyla
+            🛑 Oyunu Sonlandırmayı Oyla
           </button>
         </div>
 
