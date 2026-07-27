@@ -505,7 +505,6 @@ io.on('connection', (socket: Socket) => {
         startTurnTimer(roomId);
       }
     }
-    }
   });
 });
 
