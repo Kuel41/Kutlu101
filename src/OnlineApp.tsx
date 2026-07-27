@@ -48,7 +48,8 @@ export default function OnlineApp() {
   const [gameFinishedInfo, setGameFinishedInfo] = useState<{winner: string | null, okeyFinish?: boolean, reason?: string, isGameEnded?: boolean} | null>(null);
   
   const [timeLeft, setTimeLeft] = useState(30);
-  const [voteState, setVoteState] = useState<{active: boolean, yes: number, no: number} | null>(null);
+  const [voteState, setVoteState] = useState<{active: boolean, yes: number, no: number, startTime: number} | null>(null);
+  const [voteTimeLeft, setVoteTimeLeft] = useState(30);
   const [myVote, setMyVote] = useState<'yes' | 'no' | null>(null);
 
   const sensors = useSensors(
@@ -85,12 +86,12 @@ export default function OnlineApp() {
     });
 
     newSocket.on('voteStarted', () => {
-      setVoteState({ active: true, yes: 0, no: 0 });
+      setVoteState({ active: true, yes: 0, no: 0, startTime: Date.now() });
       setMyVote(null);
     });
 
     newSocket.on('voteUpdated', (data) => {
-      setVoteState({ active: true, yes: data.yesVotes, no: data.noVotes });
+      setVoteState(prev => prev ? { ...prev, yes: data.yesVotes, no: data.noVotes } : null);
     });
 
     newSocket.on('voteFinished', (data) => {
@@ -116,6 +117,20 @@ export default function OnlineApp() {
     const intervalId = setInterval(updateTimer, 500);
     return () => clearInterval(intervalId);
   }, [gameState?.turnStartTime, gameState?.currentPlayerId]);
+
+  useEffect(() => {
+    if (!voteState?.active || !voteState.startTime) return;
+    
+    const updateVoteTimer = () => {
+      const elapsed = Math.floor((Date.now() - voteState.startTime) / 1000);
+      const remaining = Math.max(0, 30 - elapsed);
+      setVoteTimeLeft(remaining);
+    };
+    
+    updateVoteTimer();
+    const intervalId = setInterval(updateVoteTimer, 500);
+    return () => clearInterval(intervalId);
+  }, [voteState?.active, voteState?.startTime]);
 
   const handleJoin = (uname: string, room: string) => {
     if (!socket) return;
@@ -311,6 +326,9 @@ export default function OnlineApp() {
             <div className="modal-content" style={{ background: '#2c3e50', padding: '30px' }}>
               <h2>Oyunu Sonlandırma Oylaması</h2>
               <p>Bir oyuncu oyunu sonlandırmak için oylama başlattı.<br/>Onaylıyor musunuz? (Evet oyları çoğunlukta olursa oyun biter)</p>
+              <div style={{ margin: '15px 0', fontSize: '20px', color: '#ffeb3b', fontWeight: 'bold' }}>
+                ⏳ Kalan Süre: {voteTimeLeft} saniye
+              </div>
               
               <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', margin: '20px 0' }}>
                 <button 
