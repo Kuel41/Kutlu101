@@ -76,7 +76,14 @@ function scheduleBotTurn(roomId: string) {
     if (s.currentPlayerId !== currentId) return;
 
     // Bot draws a tile
-    if (s.deck.length === 0) return;
+    if (s.deck.length === 0) {
+      for (const pid in s.players) {
+        s.players[pid].score -= 200; // Herkese 200 ceza
+      }
+      broadcastState(roomId);
+      io.to(roomId).emit('gameFinished', { winner: null, reason: 'deck_empty' });
+      return;
+    }
     const drawnTile = s.deck.pop()!;
     const botRack = s.players[currentId].rack;
     const emptyIdx = botRack.findIndex((sl: any) => sl.tile === null);
@@ -237,6 +244,14 @@ io.on('connection', (socket: Socket) => {
       if (state.currentPlayerId !== myId || state.hasDrawn) return;
       const currentTileCount = state.players[myId].rack.filter((s: any) => s.tile !== null).length;
       if (currentTileCount >= 22) return; // 22 taşı varsa çekemez
+      if (state.deck.length === 0) {
+        for (const pid in state.players) {
+          state.players[pid].score -= 200; // Herkese 200 ceza
+        }
+        broadcastState(roomId);
+        io.to(roomId).emit('gameFinished', { winner: null, reason: 'deck_empty' });
+        return;
+      }
       const drawnTile = state.deck.pop();
       if (!drawnTile) return;
       const emptySlotIndex = state.players[myId].rack.findIndex((s: any) => s.tile === null);

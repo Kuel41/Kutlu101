@@ -239,10 +239,21 @@ export default function OnlineApp() {
           <div className="modal-overlay">
             <div className="modal-content" style={{border: '2px solid #00e676'}}>
               <div className="modal-title" style={{color: '#00e676'}}>Oyun Bitti!</div>
-              <p style={{marginBottom: '20px', fontSize: '20px'}}>
-                Kazanan: {gameState.players[gameFinishedInfo.winner as keyof typeof gameState.players]?.name}
-              </p>
-              {gameFinishedInfo.okeyFinish && <p style={{color: 'red'}}>Okey ile Bitti! (x2 Ceza)</p>}
+              
+              {(gameFinishedInfo as any).reason === 'deck_empty' ? (
+                <>
+                  <p style={{marginBottom: '10px', fontSize: '20px', color: '#ffb300'}}>Ortada Çekilecek Taş Kalmadı!</p>
+                  <p style={{marginBottom: '20px', fontSize: '18px', color: '#ff5252'}}>Herkese 200 ceza puanı yazıldı.</p>
+                </>
+              ) : (
+                <>
+                  <p style={{marginBottom: '20px', fontSize: '20px'}}>
+                    Kazanan: {gameState.players[gameFinishedInfo.winner as keyof typeof gameState.players]?.name}
+                  </p>
+                  {gameFinishedInfo.okeyFinish && <p style={{color: 'red'}}>Okey ile Bitti! (x2 Ceza)</p>}
+                </>
+              )}
+
               <button className="modal-btn" onClick={() => window.location.reload()}>Yeniden Oyna</button>
             </div>
           </div>
